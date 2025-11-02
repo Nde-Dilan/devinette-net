@@ -15,24 +15,23 @@ import { Rocket, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Status = 'idle' | 'running' | 'success' | 'error';
+const TOTAL_RIDDLES = 100;
 
 export default function PopulatePage() {
   const [status, setStatus] = useState<Status>('idle');
   const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [finalMessage, setFinalMessage] = useState('');
   const [isPending, startTransition] = useTransition();
 
   const handlePopulate = () => {
     setStatus('running');
-    setLogs(['Initiating process...']);
+    setFinalMessage('');
     setProgress(0);
 
     startTransition(async () => {
-      const result = await populateRiddlesInFirestore(async (prog, msg) => {
-        setProgress(prog);
-        setLogs((prev) => [...prev, msg]);
-      });
-
+      const result = await populateRiddlesInFirestore();
+      setProgress((result.riddlesAdded / TOTAL_RIDDLES) * 100);
+      setFinalMessage(result.message);
       if (result.success) {
         setStatus('success');
       } else {
@@ -43,16 +42,16 @@ export default function PopulatePage() {
 
   const StatusIcon = () => {
     switch (status) {
-        case 'running':
-            return <Loader2 className="mr-2 size-5 animate-spin" />;
-        case 'success':
-            return <CheckCircle className="mr-2 size-5 text-green-500" />;
-        case 'error':
-            return <AlertTriangle className="mr-2 size-5 text-red-500" />;
-        default:
-            return <Rocket className="mr-2 size-5" />;
+      case 'running':
+        return <Loader2 className="mr-2 size-5 animate-spin" />;
+      case 'success':
+        return <CheckCircle className="mr-2 size-5 text-green-500" />;
+      case 'error':
+        return <AlertTriangle className="mr-2 size-5 text-red-500" />;
+      default:
+        return <Rocket className="mr-2 size-5" />;
     }
-  }
+  };
 
   return (
     <div className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center p-4">
@@ -63,7 +62,9 @@ export default function PopulatePage() {
             Database Riddle Population
           </CardTitle>
           <CardDescription>
-            Click the button to populate Firestore with 100 validated riddles from various African countries using AI.
+            Click the button to populate Firestore with {TOTAL_RIDDLES} validated
+            riddles from various African countries using AI. This may take a
+            few minutes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -77,25 +78,27 @@ export default function PopulatePage() {
               {isPending ? 'Processing...' : 'Start Population'}
             </Button>
           </div>
-          
+
           {status !== 'idle' && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <Progress value={progress} className="w-full" />
-                <span className="text-sm font-semibold">{Math.round(progress)}%</span>
+                <Progress value={isPending ? 50 : progress} className={cn(isPending && "animate-pulse")} />
+                <span className="text-sm font-semibold">{isPending ? '?' : Math.round(progress)}%</span>
               </div>
-              <ScrollArea className="h-48 w-full rounded-md border p-4">
-                <div className="flex flex-col gap-2 text-sm">
-                    {logs.map((log, index) => (
-                        <p key={index}>{log}</p>
-                    ))}
-                </div>
-              </ScrollArea>
-              {status === 'success' && <p className="text-center font-medium text-green-600">Population successful!</p>}
-              {status === 'error' && <p className="text-center font-medium text-red-600">Population encountered an error. Check logs.</p>}
+              
+              {(status === 'success' || status === 'error') && (
+                 <div className="rounded-md border bg-muted p-4 text-center">
+                    <p className={cn(
+                        "font-medium",
+                        status === 'success' && 'text-green-600',
+                        status === 'error' && 'text-red-600'
+                    )}>
+                        {finalMessage}
+                    </p>
+                 </div>
+              )}
             </div>
           )}
-
         </CardContent>
       </Card>
     </div>
