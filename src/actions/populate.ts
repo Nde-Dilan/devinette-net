@@ -1,10 +1,9 @@
 'use server';
 
 import { generateRiddles } from '@/ai/flows/generate-riddles-flow';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { initializeFirebase } from '@/firebase/server';
 import type { Riddle } from '@/lib/types';
-import { collection } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 export async function populateRiddleBatch(batchSize: number): Promise<{
   success: boolean;
@@ -21,15 +20,22 @@ export async function populateRiddleBatch(batchSize: number): Promise<{
     const result = await generateRiddles({ count: batchSize });
 
     if (result && result.riddles.length > 0) {
+      // Use a batch write for efficiency
+      const batch = writeBatch(firestore);
+
       for (const riddle of result.riddles) {
         const newRiddle: Omit<Riddle, 'id'> = {
           ...riddle,
           status: 'validated',
         };
-        // This is a non-blocking write.
-        addDocumentNonBlocking(riddlesCol, newRiddle);
+        // Create a new document reference in the riddles collection
+        const riddleRef = doc(riddlesCol);
+        batch.set(riddleRef, newRiddle);
         riddlesAdded++;
       }
+
+      // Commit the batch
+      await batch.commit();
 
       const message = `Successfully added batch of ${riddlesAdded} riddles.`;
       console.log(message);
