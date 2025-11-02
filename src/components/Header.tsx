@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, Puzzle, List, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 
@@ -67,6 +67,10 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                <SheetDescription className="sr-only">
+                    Links to navigate the application.
+                </SheetDescription>
               <div className="p-4">
                 <Logo className="mb-8 text-3xl" />
                 <nav className="flex flex-col gap-4">
