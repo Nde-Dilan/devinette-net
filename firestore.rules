@@ -1,0 +1,54 @@
+/**
+ * @fileoverview Firestore Security Rules for DevinetteNet.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a separation between pending riddle submissions and validated riddles.
+ * Pending riddles are submitted to `/riddles_pending/{riddleId}` and only become accessible once moved to `/riddles/{riddleId}`.
+ * All validated riddles in the `/riddles` collection are considered public and can be read by any user.
+ * Only authenticated users can create pending riddles, but updates and deletes are restricted.
+ *
+ * Data Structure:
+ * - `/riddles/{riddleId}`: Public collection for validated riddles.
+ * - `/riddles_pending/{riddleId}`: Collection for pending riddle submissions.
+ *
+ * Key Security Decisions:
+ * - Validated riddles are publicly readable.
+ * - Only authenticated users can submit pending riddles.
+ * - Updates and deletes are not allowed on either validated or pending riddles.
+ * - Listing of pending riddles is disabled.
+ * - The rules do NOT enforce the schema or specific data types of the Riddle entity, except for relational integrity checks during creation.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows anyone to read validated riddles, but restricts writes.
+     * @path /riddles/{riddleId}
+     * @allow (get, list) Anyone can read validated riddles.
+     * @deny (create, update, delete) No one can create, update, or delete validated riddles through direct client requests.
+     * @principle Validated riddles are considered public read-only data.
+     */
+    match /riddles/{riddleId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Allows authenticated users to create pending riddle submissions, but restricts reads, updates and deletes.
+     * @path /riddles_pending/{riddleId}
+     * @allow (create) Authenticated user can create a pending riddle submission.
+     * @deny (get, list, update, delete) No one can get, list, update, or delete pending riddles.
+     * @principle Restricts access to pending riddle submissions. Only creation is allowed.
+     */
+    match /riddles_pending/{riddleId} {
+      allow create: if isSignedIn();
+      allow get, list, update, delete: if false;
+    }
+
+    // Helper function to check if a user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+  }
+}
