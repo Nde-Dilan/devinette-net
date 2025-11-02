@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Rocket, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 type Status = 'idle' | 'running' | 'success' | 'error';
 const TOTAL_RIDDLES = 100;
