@@ -56,6 +56,13 @@ export async function populateRiddlesInFirestore(): Promise<{
       }
     } catch (error: any) {
       console.error(`Error during population (Attempt ${attempts}):`, error);
+      // If one batch fails, we'll stop and report the error.
+      const message = `An error occurred while generating riddles: ${error.message || 'Unknown error'}. So far, ${riddlesAdded} riddles have been added.`;
+      return {
+        success: false,
+        message,
+        riddlesAdded,
+      };
     }
     // Small delay between batches to avoid hitting rate limits
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -70,7 +77,7 @@ export async function populateRiddlesInFirestore(): Promise<{
       riddlesAdded,
     };
   } else {
-    const message = `Population finished after ${attempts} attempts. Added ${riddlesAdded} out of ${TOTAL_RIDDLES}.`;
+    const message = `Population finished after ${attempts} attempts, but only added ${riddlesAdded} out of ${TOTAL_RIDDLES}. The AI may have run out of unique riddles.`;
     console.log(message);
     return {
       success: false,
