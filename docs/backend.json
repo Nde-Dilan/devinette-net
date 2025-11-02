@@ -32,7 +32,8 @@
         },
         "status": {
           "type": "string",
-          "description": "The status of the riddle (e.g., pending, validated)."
+          "description": "The status of the riddle (e.g., pending, validated).",
+          "enum": ["pending", "validated"]
         }
       },
       "required": [
@@ -58,32 +59,16 @@
           "schema": {
             "$ref": "#/backend/entities/Riddle"
           },
-          "description": "Collection for validated riddles that are available for the application. Includes all riddle data.",
+          "description": "Collection for all riddles. The 'status' field distinguishes between 'pending' and 'validated' riddles.",
           "params": [
             {
               "name": "riddleId",
-              "description": "Unique identifier for each validated riddle."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/riddles_pending/{riddleId}",
-        "definition": {
-          "entityName": "Riddle",
-          "schema": {
-            "$ref": "#/backend/entities/Riddle"
-          },
-          "description": "Collection for pending riddle submissions. These riddles have a 'pending' status and are not yet validated.",
-          "params": [
-            {
-              "name": "riddleId",
-              "description": "Unique identifier for each pending riddle submission."
+              "description": "Unique identifier for each riddle."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the DevinetteNet application's requirements for storing and retrieving riddles, handling user submissions, and ensuring data integrity. It prioritizes authorization independence and clarity to facilitate secure and maintainable security rules. The separation of pending and validated riddles into distinct collections enables efficient querying and simplifies the approval workflow. The structure leverages naming conventions, explicit state modeling, and denormalization to ensure predictability and ease debugging.\n\n**Authorization Independence:**\n\n*   The design avoids hierarchical authorization dependencies by storing all necessary data within each document. In this case, because all riddles are publicly accessible once validated, no denormalized authorization data is required within the `/riddles` collection.\n\n**QAPs (Rules are not Filters):**\n\n*   The segregation of riddles into `/riddles_pending` and `/riddles` collections supports secure `list` operations. Only riddles in the `/riddles` collection are considered validated and safe to display, thus preventing the need to filter out pending riddles in the rules. The segregation achieves the QAP principle."
+    "reasoning": "A single collection for riddles simplifies management. The 'status' field ('pending' or 'validated') controls visibility and workflow. Security rules will enforce that only 'validated' riddles are publicly readable, while new submissions must be 'pending'. This eliminates the need for two separate collections and makes the validation process a simple field update."
   }
 }

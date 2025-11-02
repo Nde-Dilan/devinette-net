@@ -1,10 +1,8 @@
 'use client';
 import {
   collection,
-  getDocs,
   getDoc,
   doc,
-  addDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import type { Riddle } from './types';
@@ -16,21 +14,23 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 /**
  * Fetches a single riddle by its ID from the 'riddles' collection.
- * This function is intended for client-side use.
+ * This function is intended for client-side use. The security rules will ensure
+ * that only riddles with status 'validated' can be fetched.
  * @param id The ID of the riddle to fetch.
- * @returns A promise that resolves to the Riddle object or undefined if not found.
+ * @returns A promise that resolves to the Riddle object or undefined if not found or not validated.
  */
 export async function getRiddleById(id: string): Promise<Riddle | undefined> {
   const { firestore } = initializeFirebase();
-  const riddleDoc = await getDoc(doc(firestore, 'riddles', id));
-  if (riddleDoc.exists()) {
+  const riddleDocRef = doc(firestore, 'riddles', id);
+  const riddleDoc = await getDoc(riddleDocRef);
+  if (riddleDoc.exists() && riddleDoc.data().status === 'validated') {
     return { ...riddleDoc.data(), id: riddleDoc.id } as Riddle;
   }
   return undefined;
 }
 
 /**
- * Submits a new riddle to the 'riddles_pending' collection for validation.
+ * Submits a new riddle to the 'riddles' collection with a 'pending' status.
  * @param riddleData The partial riddle data from the submission form.
  */
 export async function submitRiddle(
@@ -45,12 +45,12 @@ export async function submitRiddle(
     // The security rules will enforce the auth requirement.
   }
 
-  const pendingRiddlesCol = collection(firestore, 'riddles_pending');
+  const riddlesCol = collection(firestore, 'riddles');
   const newRiddle: Omit<Riddle, 'id'> = {
     ...riddleData,
-    status: 'pending',
+    status: 'pending', // New submissions are always pending
   };
 
   // Use the non-blocking add function. It handles errors via the global emitter.
-  addDocumentNonBlocking(pendingRiddlesCol, newRiddle);
+  addDocumentNonBlocking(riddlesCol, newRiddle);
 }

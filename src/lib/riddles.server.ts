@@ -1,17 +1,20 @@
 import 'server-only';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase/server';
 import type { Riddle } from './types';
 
 /**
  * Fetches all validated riddles from the 'riddles' collection in Firestore.
- * This is a server-side function.
+ * This is a server-side function. It specifically queries for riddles
+ * where the status is 'validated'.
  * @returns A promise that resolves to an array of Riddle objects.
  */
 export async function getRiddles(): Promise<Riddle[]> {
   const { firestore } = initializeFirebase();
   const riddlesCol = collection(firestore, 'riddles');
-  const snapshot = await getDocs(riddlesCol);
+  // Query for riddles that are validated
+  const q = query(riddlesCol, where('status', '==', 'validated'));
+  const snapshot = await getDocs(q);
   return snapshot.docs.map(
     (doc) => ({ ...doc.data(), id: doc.id } as Riddle)
   );

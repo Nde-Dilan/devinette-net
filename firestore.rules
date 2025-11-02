@@ -2,48 +2,54 @@
  * @fileoverview Firestore Security Rules for DevinetteNet.
  *
  * Core Philosophy:
- * This ruleset enforces a separation between pending riddle submissions and validated riddles.
- * Pending riddles are submitted to `/riddles_pending/{riddleId}` and only become accessible once moved to `/riddles/{riddleId}`.
- * All validated riddles in the `/riddles` collection are considered public and can be read by any user.
- * Only authenticated users can create pending riddles, but updates and deletes are restricted.
+ * This ruleset uses a single collection for all riddles. A 'status' field on each riddle
+ * document determines its visibility. Riddles with a status of 'validated' are public.
+ * Riddles with a status of 'pending' are not publicly readable.
  *
  * Data Structure:
- * - `/riddles/{riddleId}`: Public collection for validated riddles.
- * - `/riddles_pending/{riddleId}`: Collection for pending riddle submissions.
+ * - `/riddles/{riddleId}`: A single collection for all riddles.
+ *   - `status`: A string field that can be 'pending' or 'validated'.
  *
  * Key Security Decisions:
- * - Validated riddles are publicly readable.
- * - Only authenticated users can submit pending riddles.
- * - Updates and deletes are not allowed on either validated or pending riddles.
- * - Listing of pending riddles is disabled.
- * - The rules do NOT enforce the schema or specific data types of the Riddle entity, except for relational integrity checks during creation.
+ * - Public read access is granted only to riddles where `status == 'validated'`.
+ * - Authenticated users can create new riddles, but they MUST have `status == 'pending'`.
+ * - Direct client-side updates and deletes are disallowed to maintain data integrity and workflow control.
+ *   Admins will manage status changes from 'pending' to 'validated' via the Firebase Console or a trusted backend.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read validated riddles, but restricts writes.
+     * @description Rules for the single riddles collection.
      * @path /riddles/{riddleId}
-     * @allow (get, list) Anyone can read validated riddles.
-     * @deny (create, update, delete) No one can create, update, or delete validated riddles through direct client requests.
-     * @principle Validated riddles are considered public read-only data.
      */
     match /riddles/{riddleId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
+      /**
+       * @description Allows public read access ONLY to validated riddles.
+       * @allow (get) Anyone can read a single riddle if its status is 'validated'.
+       * @allow (list) Anyone can list riddles, but the query MUST include `where('status', '==', 'validated')`.
+       * @principle Enforces that only approved content is visible to users.
+       */
+      allow get: if resource.data.status == 'validated';
+      allow list: if request.query.filters.size() == 1 &&
+                     'status' in request.query.filters &&
+                     request.query.filters.status[0] == 'validated';
 
-    /**
-     * @description Allows authenticated users to create pending riddle submissions, but restricts reads, updates and deletes.
-     * @path /riddles_pending/{riddleId}
-     * @allow (create) Authenticated user can create a pending riddle submission.
-     * @deny (get, list, update, delete) No one can get, list, update, or delete pending riddles.
-     * @principle Restricts access to pending riddle submissions. Only creation is allowed.
-     */
-    match /riddles_pending/{riddleId} {
-      allow create: if isSignedIn();
-      allow get, list, update, delete: if false;
+      /**
+       * @description Allows authenticated users to create PENDING riddle submissions.
+       * The incoming document MUST have a status of 'pending'.
+       * @allow (create) An authenticated user can submit a new riddle.
+       * @principle Ensures all new content goes through a moderation workflow.
+       */
+      allow create: if isSignedIn() && request.resource.data.status == 'pending';
+
+      /**
+       * @description Denies all updates and deletes from the client.
+       * @deny (update, delete) Updates and deletions must be handled by a trusted backend or admin.
+       * @principle Prevents users from altering their own or others' submissions, or changing a riddle's status.
+       */
+      allow update, delete: if false;
     }
 
     // Helper function to check if a user is signed in.
