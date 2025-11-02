@@ -20,21 +20,22 @@ export async function populateRiddleBatch(batchSize: number): Promise<{
     const result = await generateRiddles({ count: batchSize });
 
     if (result && result.riddles.length > 0) {
-      // Use a batch write for efficiency
       const batch = writeBatch(firestore);
 
       for (const riddle of result.riddles) {
+        // Defensive mapping to ensure all fields are present
         const newRiddle: Omit<Riddle, 'id'> = {
-          ...riddle,
+          question: riddle.question,
+          answer: riddle.answer,
+          origin: riddle.origin || '', // Fallback to empty string
+          language: riddle.language || '', // Fallback to empty string
           status: 'validated',
         };
-        // Create a new document reference in the riddles collection
         const riddleRef = doc(riddlesCol);
         batch.set(riddleRef, newRiddle);
         riddlesAdded++;
       }
 
-      // Commit the batch
       await batch.commit();
 
       const message = `Successfully added batch of ${riddlesAdded} riddles.`;
