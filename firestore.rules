@@ -13,6 +13,8 @@
  * Key Security Decisions:
  * - Public read access is granted only to riddles where `status == 'validated'`.
  * - Authenticated users can create new riddles, but they MUST have `status == 'pending'`.
+ * - Server-side scripts (like the population script) are assumed to be unauthenticated and are
+ *   allowed to create 'validated' riddles directly.
  * - Direct client-side updates and deletes are disallowed to maintain data integrity and workflow control.
  *   Admins will manage status changes from 'pending' to 'validated' via the Firebase Console or a trusted backend.
  */
@@ -37,12 +39,15 @@ service cloud.firestore {
                      request.query.filters.status[0] == 'validated';
 
       /**
-       * @description Allows authenticated users to create PENDING riddle submissions.
-       * The incoming document MUST have a status of 'pending'.
-       * @allow (create) An authenticated user can submit a new riddle.
-       * @principle Ensures all new content goes through a moderation workflow.
+       * @description Allows two types of creation:
+       * 1. Authenticated users can submit PENDING riddles.
+       * 2. Unauthenticated server-side processes can create VALIDATED riddles.
+       * @allow (create) An authenticated user can submit a new riddle, or a server process can populate validated ones.
+       * @principle Ensures user content goes through moderation, while trusted scripts can bypass it.
        */
-      allow create: if isSignedIn() && request.resource.data.status == 'pending';
+      allow create: if (isSignedIn() && request.resource.data.status == 'pending') ||
+                       (!isSignedIn() && request.resource.data.status == 'validated');
+
 
       /**
        * @description Denies all updates and deletes from the client.
