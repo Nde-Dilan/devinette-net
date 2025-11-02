@@ -18,7 +18,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { submitRiddle } from '@/lib/riddles';
 
 const formSchema = z.object({
   question: z.string().min(10, 'Riddle must be at least 10 characters long.'),
@@ -29,7 +30,8 @@ const formSchema = z.object({
 
 export function SubmitRiddleForm() {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -41,19 +43,23 @@ export function SubmitRiddleForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    // Simulate API call to save to Firestore
-    console.log('Submitting riddle:', values);
-    
-    setTimeout(() => {
-      // In a real app, you would handle the response from your backend here.
-      toast({
-        title: 'Riddle Submitted!',
-        description: 'Thank you for your contribution.',
-      });
-      form.reset();
-      setIsSubmitting(false);
-    }, 1000);
+    startTransition(async () => {
+        try {
+            await submitRiddle(values);
+            toast({
+                title: 'Riddle Submitted!',
+                description: "Thank you for your contribution. It's now pending review.",
+            });
+            form.reset();
+        } catch (error: any) {
+            console.error('Submission failed', error);
+            toast({
+                variant: 'destructive',
+                title: 'Uh oh! Something went wrong.',
+                description: error.message || 'Could not submit your riddle. Please try again later.',
+            });
+        }
+    });
   }
 
   return (
@@ -72,6 +78,7 @@ export function SubmitRiddleForm() {
                       placeholder="e.g., I have cities, but no houses..."
                       className="resize-none"
                       {...field}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormDescription>
@@ -88,7 +95,7 @@ export function SubmitRiddleForm() {
                 <FormItem>
                   <FormLabel>Answer</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., A map" {...field} />
+                    <Input placeholder="e.g., A map" {...field} disabled={isPending} />
                   </FormControl>
                   <FormDescription>
                     What is the correct answer?
@@ -105,7 +112,7 @@ export function SubmitRiddleForm() {
                   <FormItem>
                     <FormLabel>Origin (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Cameroon" {...field} />
+                      <Input placeholder="e.g., Cameroon" {...field} disabled={isPending} />
                     </FormControl>
                     <FormDescription>Country or region of origin.</FormDescription>
                     <FormMessage />
@@ -119,7 +126,7 @@ export function SubmitRiddleForm() {
                   <FormItem>
                     <FormLabel>Language (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., English" {...field} />
+                      <Input placeholder="e.g., English" {...field} disabled={isPending} />
                     </FormControl>
                     <FormDescription>Original language of the riddle.</FormDescription>
                     <FormMessage />
@@ -129,8 +136,8 @@ export function SubmitRiddleForm() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit Riddle
             </Button>
           </CardFooter>

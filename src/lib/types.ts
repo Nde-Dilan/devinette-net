@@ -5,4 +5,5 @@ export type Riddle = {
   origin?: string;
   language?: string;
   category?: string;
+  status?: 'pending' | 'validated';
 };

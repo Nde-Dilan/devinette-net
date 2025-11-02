@@ -1,80 +1,92 @@
+'use client';
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  addDoc,
+} from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 import type { Riddle } from './types';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-export const riddles: Riddle[] = [
-  {
-    id: '1',
-    question: 'I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?',
-    answer: 'A map',
-    origin: 'Nigeria',
-    language: 'English',
-    category: 'Logic',
-  },
-  {
-    id: '2',
-    question: 'What has an eye, but cannot see?',
-    answer: 'A needle',
-    origin: 'Ghana',
-    language: 'English',
-    category: 'Object',
-  },
-  {
-    id: '3',
-    question: 'I walk without feet and I cry without eyes. What am I?',
-    answer: 'The rain',
-    origin: 'Cameroon',
-    language: 'English',
-    category: 'Nature',
-  },
-  {
-    id: '4',
-    question: 'What is always on its way but never arrives?',
-    answer: 'Tomorrow',
-    origin: 'Ethiopia',
-    language: 'Amharic',
-    category: 'Abstract',
-  },
-  {
-    id: '5',
-    question: 'A small, round house, and it is full of meat.',
-    answer: 'A groundnut (peanut)',
-    origin: 'Senegal',
-    language: 'Wolof',
-    category: 'Food',
-  },
-   {
-    id: '6',
-    question: 'My house has no door.',
-    answer: 'An egg',
-    origin: 'Kenya',
-    language: 'Swahili',
-    category: 'Food',
-  },
-  {
-    id: '7',
-    question: "What walks on four feet in the morning, two in the afternoon and three at night?",
-    answer: 'A man (crawls as a baby, walks as an adult, uses a cane in old age)',
-    origin: 'Egypt',
-    language: 'Arabic',
-    category: 'Life',
-  },
-];
+// NOTE: This file is now for client-side Firebase access.
+// The static data has been moved to a migration script (or should be considered moved).
 
+/**
+ * Fetches all validated riddles from the 'riddles' collection in Firestore.
+ * @returns A promise that resolves to an array of Riddle objects.
+ */
 export async function getRiddles(): Promise<Riddle[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return Promise.resolve(riddles);
+  const { firestore } = initializeFirebase();
+  const riddlesCol = collection(firestore, 'riddles');
+  const snapshot = await getDocs(riddlesCol);
+  return snapshot.docs.map(
+    (doc) => ({ ...doc.data(), id: doc.id } as Riddle)
+  );
 }
 
+/**
+ * Fetches a single riddle by its ID from the 'riddles' collection.
+ * @param id The ID of the riddle to fetch.
+ * @returns A promise that resolves to the Riddle object or undefined if not found.
+ */
 export async function getRiddleById(id: string): Promise<Riddle | undefined> {
-  return Promise.resolve(riddles.find(r => r.id === id));
+  const { firestore } = initializeFirebase();
+  const riddleDoc = await getDoc(doc(firestore, 'riddles', id));
+  if (riddleDoc.exists()) {
+    return { ...riddleDoc.data(), id: riddleDoc.id } as Riddle;
+  }
+  return undefined;
 }
 
+/**
+ * Fetches all unique origins from the validated riddles.
+ * @returns A promise that resolves to a sorted array of unique origin strings.
+ */
 export async function getOrigins(): Promise<string[]> {
-  const origins = new Set(riddles.map(r => r.origin).filter(Boolean) as string[]);
-  return Promise.resolve(Array.from(origins).sort());
+  const allRiddles = await getRiddles();
+  const origins = new Set(
+    allRiddles.map((r) => r.origin).filter(Boolean) as string[]
+  );
+  return Array.from(origins).sort();
 }
 
+/**
+ * Fetches all unique languages from the validated riddles.
+ * @returns A promise that resolves to a sorted array of unique language strings.
+ */
 export async function getLanguages(): Promise<string[]> {
-  const languages = new Set(riddles.map(r => r.language).filter(Boolean) as string[]);
-  return Promise.resolve(Array.from(languages).sort());
+  const allRiddles = await getRiddles();
+  const languages = new Set(
+    allRiddles.map((r) => r.language).filter(Boolean) as string[]
+  );
+  return Array.from(languages).sort();
+}
+
+/**
+ * Submits a new riddle to the 'riddles_pending' collection for validation.
+ * @param riddleData The partial riddle data from the submission form.
+ */
+export async function submitRiddle(
+  riddleData: Omit<Riddle, 'id' | 'status'>
+): Promise<void> {
+  const { firestore, auth } = initializeFirebase();
+
+  // Ensure user is authenticated (anonymously is fine)
+  if (!auth.currentUser) {
+    initiateAnonymousSignIn(auth);
+    // You might want to wait for sign-in here, but for non-blocking UI, we proceed.
+    // The security rules will enforce the auth requirement.
+  }
+
+  const pendingRiddlesCol = collection(firestore, 'riddles_pending');
+  const newRiddle: Omit<Riddle, 'id'> = {
+    ...riddleData,
+    status: 'pending',
+  };
+
+  // Use the non-blocking add function. It handles errors via the global emitter.
+  addDocumentNonBlocking(pendingRiddlesCol, newRiddle);
 }
