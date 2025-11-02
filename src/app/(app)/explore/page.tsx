@@ -1,4 +1,4 @@
-import { getRiddles, getOrigins, getLanguages } from '@/lib/riddles';
+import { getRiddles, getOrigins, getLanguages } from '@/lib/riddles.server';
 import ExploreRiddles from '@/components/ExploreRiddles';
 import { AfricanPattern } from '@/components/AfricanPattern';
 

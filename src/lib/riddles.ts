@@ -11,24 +11,12 @@ import type { Riddle } from './types';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-// NOTE: This file is now for client-side Firebase access.
-// The static data has been moved to a migration script (or should be considered moved).
-
-/**
- * Fetches all validated riddles from the 'riddles' collection in Firestore.
- * @returns A promise that resolves to an array of Riddle objects.
- */
-export async function getRiddles(): Promise<Riddle[]> {
-  const { firestore } = initializeFirebase();
-  const riddlesCol = collection(firestore, 'riddles');
-  const snapshot = await getDocs(riddlesCol);
-  return snapshot.docs.map(
-    (doc) => ({ ...doc.data(), id: doc.id } as Riddle)
-  );
-}
+// NOTE: This file is for client-side Firebase access.
+// Server-side fetching functions are in riddles.server.ts
 
 /**
  * Fetches a single riddle by its ID from the 'riddles' collection.
+ * This function is intended for client-side use.
  * @param id The ID of the riddle to fetch.
  * @returns A promise that resolves to the Riddle object or undefined if not found.
  */
@@ -39,30 +27,6 @@ export async function getRiddleById(id: string): Promise<Riddle | undefined> {
     return { ...riddleDoc.data(), id: riddleDoc.id } as Riddle;
   }
   return undefined;
-}
-
-/**
- * Fetches all unique origins from the validated riddles.
- * @returns A promise that resolves to a sorted array of unique origin strings.
- */
-export async function getOrigins(): Promise<string[]> {
-  const allRiddles = await getRiddles();
-  const origins = new Set(
-    allRiddles.map((r) => r.origin).filter(Boolean) as string[]
-  );
-  return Array.from(origins).sort();
-}
-
-/**
- * Fetches all unique languages from the validated riddles.
- * @returns A promise that resolves to a sorted array of unique language strings.
- */
-export async function getLanguages(): Promise<string[]> {
-  const allRiddles = await getRiddles();
-  const languages = new Set(
-    allRiddles.map((r) => r.language).filter(Boolean) as string[]
-  );
-  return Array.from(languages).sort();
 }
 
 /**

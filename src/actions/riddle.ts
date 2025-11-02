@@ -1,7 +1,8 @@
 'use server';
 
 import { adaptiveRiddleSelection } from '@/ai/flows/adaptive-riddle-selection';
-import { getRiddles, getRiddleById } from '@/lib/riddles';
+import { getRiddles } from '@/lib/riddles.server';
+import { getRiddleById } from '@/lib/riddles';
 import type { Riddle } from '@/lib/types';
 
 export async function getAdaptiveRiddle(
@@ -29,6 +30,7 @@ export async function getAdaptiveRiddle(
 
     console.log('AI selected riddle:', result.selectedRiddleId, 'Reason:', result.reason);
 
+    // getRiddleById is a client function, but it's fine to call it from a server action.
     const selectedRiddle = await getRiddleById(result.selectedRiddleId);
     
     // Ensure we don't return a riddle the user just saw if lists are out of sync
