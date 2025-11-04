@@ -34,9 +34,8 @@ service cloud.firestore {
        * @principle Enforces that only approved content is visible to users.
        */
       allow get: if resource.data.status == 'validated';
-      allow list: if request.query.filters.size() == 1 &&
-                     'status' in request.query.filters &&
-                     request.query.filters.status[0] == 'validated';
+      allow list: if request.query.where.size() == 1 &&
+                     request.query.where.status == 'validated';
 
       /**
        * @description Allows two types of creation:
